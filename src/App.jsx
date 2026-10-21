@@ -22,8 +22,6 @@ import {
   LoaderCircle,
   Plus,
   RotateCcw,
-  ShieldCheck,
-  Sparkles,
 } from 'lucide-react';
 import DocumentDropzone from './components/DocumentDropzone.jsx';
 import ReferenceCard from './components/ReferenceCard.jsx';
@@ -88,6 +86,13 @@ export default function App() {
   const hasTitle = Boolean(settings.titleEn.trim() || settings.titleKo.trim());
   const verseSlides = references.reduce((sum, reference) => sum + reference.verseEnd - reference.verseStart + 1, 0);
   const slideCount = verseSlides + (hasTitle ? 1 : 0);
+  const previewMainReference = useMemo(() => {
+    if (settings.mainPassage.trim()) {
+      return extractReferences(settings.mainPassage)[0] || null;
+    }
+    return references[0] || null;
+  }, [references, settings.mainPassage]);
+  const previewPassageFallback = settings.mainPassage.trim() || c.passage;
 
   useEffect(() => {
     localStorage.setItem('kcic-ppt-draft', JSON.stringify({ references, settings }));
@@ -345,34 +350,18 @@ export default function App() {
       style={{ '--template-background': `url("${import.meta.env.BASE_URL}assets/sermon-background.png")` }}
     >
       <header className="app-header">
-        <div className="brand-mark" aria-hidden="true"><span /><span /><span /><span /></div>
         <div className="brand-copy">
           <strong>{c.brand}</strong>
-          <span>SERMON PPT STUDIO</span>
         </div>
         <div className="header-spacer" />
         <div className="language-switch" role="group" aria-label="Language">
           <button type="button" className={language === 'en' ? 'is-active' : ''} aria-pressed={language === 'en'} onClick={() => setLanguage('en')}>EN</button>
           <button type="button" className={language === 'ko' ? 'is-active' : ''} aria-pressed={language === 'ko'} onClick={() => setLanguage('ko')}>한국어</button>
         </div>
-        <div className="privacy-chip"><ShieldCheck size={15} /> {c.privacy}</div>
         <button type="button" className="reset-button" onClick={resetProject}><RotateCcw size={15} /> {c.reset}</button>
       </header>
 
       <main>
-        <section className="intro-row">
-          <div>
-            <span className="eyebrow"><Sparkles size={15} /> {c.eyebrow}</span>
-            <h1>{c.heroLine1}<br />{c.heroLine2}</h1>
-            <p>{c.heroDescription}</p>
-          </div>
-          <ol className="workflow-steps" aria-label={c.workflowLabel}>
-            <li className="is-done"><span>1</span><div><strong>{c.step1Title}</strong><small>{c.step1Detail}</small></div></li>
-            <li className={references.length ? 'is-done' : 'is-current'}><span>2</span><div><strong>{c.step2Title}</strong><small>{c.step2Detail(references.length)}</small></div></li>
-            <li className={references.length ? 'is-current' : ''}><span>3</span><div><strong>{c.step3Title}</strong><small>{c.step3Detail(slideCount)}</small></div></li>
-          </ol>
-        </section>
-
         {notice && <div className={`notice notice-${notice.type}`} role="status">{notice.type === 'success' && <CheckCircle2 size={18} />}{notice.text}</div>}
 
         <div className="workspace">
@@ -413,8 +402,10 @@ export default function App() {
             <section className="template-preview" aria-label={c.templatePreview}>
               <div className="preview-screen">
                 <div className="preview-text">
-                  <strong>{(language === 'en' ? settings.titleEn : settings.titleKo) || c.sermonTitle}</strong>
-                  <span>{selectedReference ? `(${formatReference(selectedReference, language)})` : `(${c.passage})`}</span>
+                  <strong className={!settings.titleEn.trim() ? 'is-placeholder' : ''}>{settings.titleEn.trim() || c.englishTitle}</strong>
+                  <span>{`(${previewMainReference ? formatReference(previewMainReference, 'en') : previewPassageFallback})`}</span>
+                  <strong className={`preview-title-ko${!settings.titleKo.trim() ? ' is-placeholder' : ''}`}>{settings.titleKo.trim() || c.koreanTitle}</strong>
+                  <span>{`(${previewMainReference ? formatReference(previewMainReference, 'ko') : previewPassageFallback})`}</span>
                 </div>
               </div>
               <div><span>{c.templateName}</span><small>{c.templateDetail}</small></div>
