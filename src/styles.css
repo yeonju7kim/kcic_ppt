@@ -122,6 +122,23 @@ main {
 
 .settings-column { display: grid; gap: 14px; }
 
+/* English labels and placeholders are longer. Keep their intrinsic width from
+   pushing the settings cards underneath the Scripture workspace. */
+.lang-en .settings-column,
+.lang-en .panel,
+.lang-en .form-stack > label,
+.lang-en .translation-grid > label,
+.lang-en .reference-fields > label {
+  min-width: 0;
+}
+.lang-en input,
+.lang-en select { min-width: 0; }
+.lang-en .dropzone > div:not(.file-icon) { overflow: hidden; }
+.lang-en .source-status { overflow-wrap: anywhere; }
+.lang-en .verses-header { gap: 16px; }
+.lang-en .list-tools { flex: 0 0 auto; }
+.lang-en .list-tools > span { white-space: nowrap; }
+
 .panel,
 .verses-column {
   background: var(--paper);
@@ -362,6 +379,15 @@ footer { display: flex; justify-content: space-between; gap: 24px; width: min(14
   .reference-fields label:nth-child(5), .reference-fields label:nth-child(6) { grid-column: span 2; }
 }
 
+@media (max-width: 1120px) {
+  .lang-en main { width: min(100% - 28px, 700px); }
+  .lang-en .workspace { grid-template-columns: 1fr; }
+  .lang-en .settings-column { grid-template-columns: 1fr 1fr; }
+  .lang-en .source-panel,
+  .lang-en .template-preview { grid-column: 1 / -1; }
+  .lang-en .template-preview { display: grid; grid-template-columns: minmax(220px, 1fr) 1fr; align-items: center; }
+}
+
 @media (max-width: 820px) {
   .app-shell { padding-bottom: 190px; }
   .app-header { height: auto; min-height: 66px; padding: 10px 18px; }
@@ -383,8 +409,11 @@ footer { display: flex; justify-content: space-between; gap: 24px; width: min(14
   .reset-button { font-size: 0; }
   .reset-button svg { width: 18px; height: 18px; }
   .settings-column { grid-template-columns: 1fr; }
+  .lang-en .settings-column { grid-template-columns: 1fr; }
   .source-panel, .template-preview { grid-column: auto; }
+  .lang-en .source-panel, .lang-en .template-preview { grid-column: auto; }
   .template-preview { display: block; }
+  .lang-en .template-preview { display: block; }
   .verses-column { padding: 15px; }
   .verses-header { align-items: flex-start; }
   .verses-header p { display: none; }

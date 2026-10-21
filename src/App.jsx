@@ -346,7 +346,7 @@ export default function App() {
 
   return (
     <div
-      className="app-shell"
+      className={`app-shell lang-${language}`}
       style={{ '--template-background': `url("${import.meta.env.BASE_URL}assets/sermon-background.png")` }}
     >
       <header className="app-header">
