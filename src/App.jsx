@@ -28,6 +28,7 @@ import {
 import DocumentDropzone from './components/DocumentDropzone.jsx';
 import ReferenceCard from './components/ReferenceCard.jsx';
 import { ENGLISH_TRANSLATIONS, KOREAN_TRANSLATIONS } from './data/books.js';
+import { COPY, getLanguage } from './i18n.js';
 import { fetchPassages } from './lib/bible.js';
 import { isSupportedDocument } from './lib/fileTypes.js';
 import {
@@ -42,7 +43,7 @@ const EMPTY_SETTINGS = {
   mainPassage: '',
   defaultEnglish: 'NIV',
   defaultKorean: 'GAE',
-  fileName: 'KCIC_말씀_슬라이드',
+  fileName: 'KCIC_Scripture_Slides',
 };
 
 function loadDraft() {
@@ -64,10 +65,11 @@ function referenceKey(reference) {
 
 export default function App() {
   const draft = useMemo(loadDraft, []);
+  const [language, setLanguage] = useState(getLanguage);
   const [references, setReferences] = useState(draft?.references || []);
   const [settings, setSettings] = useState(draft?.settings || EMPTY_SETTINGS);
   const [sourceFile, setSourceFile] = useState(null);
-  const [sourceStatus, setSourceStatus] = useState('원고 없이 바로 시작할 수 있습니다.');
+  const [sourceStatus, setSourceStatus] = useState({ kind: 'idle' });
   const [parsing, setParsing] = useState(false);
   const [quickText, setQuickText] = useState('');
   const [selectedId, setSelectedId] = useState(draft?.references?.[0]?.id || null);
@@ -75,6 +77,7 @@ export default function App() {
   const [notice, setNotice] = useState(null);
   const [generating, setGenerating] = useState(false);
   const [progress, setProgress] = useState({ current: 0, total: 0, label: '' });
+  const c = COPY[language];
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
@@ -89,6 +92,12 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem('kcic-ppt-draft', JSON.stringify({ references, settings }));
   }, [references, settings]);
+
+  useEffect(() => {
+    localStorage.setItem('kcic-ppt-language', language);
+    document.documentElement.lang = language;
+    document.title = c.pageTitle;
+  }, [c.pageTitle, language]);
 
   useEffect(() => {
     if (!notice) return undefined;
@@ -110,22 +119,22 @@ export default function App() {
   const copyReference = useCallback((reference) => {
     setCopiedReference({ ...reference });
     navigator.clipboard?.writeText(formatReference(reference)).catch(() => {});
-    setNotice({ type: 'success', text: `${formatReference(reference)} 블록을 복사했습니다.` });
-  }, []);
+    setNotice({ type: 'success', text: c.copied(formatReference(reference, language)) });
+  }, [c, language]);
 
   const pasteCopiedReference = useCallback(() => {
     if (!copiedReference) {
-      setNotice({ type: 'info', text: '먼저 구절 블록의 복사 버튼을 눌러주세요.' });
+      setNotice({ type: 'info', text: c.copyFirst });
       return;
     }
-    insertReferences([cloneReference(copiedReference)], '복사한 블록을 선택 위치 아래에 붙였습니다.');
-  }, [copiedReference, insertReferences]);
+    insertReferences([cloneReference(copiedReference)], c.pastedCopy);
+  }, [c, copiedReference, insertReferences]);
 
   useEffect(() => {
     function handleCopy(event) {
       if (isTypingTarget(document.activeElement) || !selectedReference) return;
       event.preventDefault();
-      event.clipboardData?.setData('text/plain', formatReference(selectedReference));
+      event.clipboardData?.setData('text/plain', formatReference(selectedReference, language));
       copyReference(selectedReference);
     }
 
@@ -138,7 +147,7 @@ export default function App() {
       });
       if (parsed.length) {
         event.preventDefault();
-        insertReferences(parsed, `${parsed.length}개 구절을 붙여넣었습니다.`);
+        insertReferences(parsed, c.pastedMany(parsed.length));
       } else if (copiedReference) {
         event.preventDefault();
         pasteCopiedReference();
@@ -149,7 +158,7 @@ export default function App() {
       if (isTypingTarget(document.activeElement) || !(event.ctrlKey || event.metaKey)) return;
       if (event.key.toLowerCase() === 'd' && selectedReference) {
         event.preventDefault();
-        insertReferences([cloneReference(selectedReference)], '선택한 블록을 복제했습니다.');
+        insertReferences([cloneReference(selectedReference)], c.duplicated);
       }
     }
 
@@ -161,7 +170,7 @@ export default function App() {
       window.removeEventListener('paste', handlePaste);
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [copiedReference, copyReference, insertReferences, pasteCopiedReference, selectedReference, settings.defaultEnglish, settings.defaultKorean]);
+  }, [c, copiedReference, copyReference, insertReferences, language, pasteCopiedReference, selectedReference, settings.defaultEnglish, settings.defaultKorean]);
 
   function updateSetting(key, value) {
     setSettings((current) => ({ ...current, [key]: value }));
@@ -169,16 +178,16 @@ export default function App() {
 
   async function handleFile(file) {
     if (!isSupportedDocument(file)) {
-      setNotice({ type: 'error', text: 'DOCX, PDF, TXT 파일만 사용할 수 있습니다.' });
+      setNotice({ type: 'error', text: c.unsupportedFile });
       return;
     }
 
     setSourceFile(file);
     setParsing(true);
-    setSourceStatus('원고 분석을 준비하는 중…');
+    setSourceStatus({ kind: 'preparing' });
     try {
       const { extractTextFromFile } = await import('./lib/documents.js');
-      const text = await extractTextFromFile(file, setSourceStatus);
+      const text = await extractTextFromFile(file, (textStatus) => setSourceStatus({ kind: 'progress', text: textStatus }), language);
       const extracted = extractReferences(text, {
         englishTranslation: settings.defaultEnglish,
         koreanTranslation: settings.defaultKorean,
@@ -190,23 +199,22 @@ export default function App() {
         setSelectedId(newItems[0].id);
       }
       const skipped = extracted.length - newItems.length;
-      const detail = skipped ? ` · 중복 ${skipped}개 제외` : '';
-      setSourceStatus(`${file.name}에서 구절 ${extracted.length}개를 찾았습니다${detail}.`);
+      setSourceStatus({ kind: 'extracted', file: file.name, count: extracted.length, skipped });
       if (!extracted.length) {
         setNotice({
           type: 'info',
           text: file.name.toLowerCase().endsWith('.pdf')
-            ? '구절을 찾지 못했습니다. 스캔 PDF라면 텍스트 인식이 되지 않을 수 있어요. 아래에서 직접 추가할 수 있습니다.'
-            : '구절을 찾지 못했습니다. 아래 입력창에서 직접 추가해 주세요.',
+            ? c.noPdfPassages
+            : c.noPassages,
         });
       } else {
-        setNotice({ type: 'success', text: `원고에서 구절 ${extracted.length}개를 가져왔습니다.` });
+        setNotice({ type: 'success', text: c.imported(extracted.length) });
       }
       if (settings.fileName === EMPTY_SETTINGS.fileName) {
         updateSetting('fileName', file.name.replace(/\.[^.]+$/, ''));
       }
     } catch (error) {
-      setSourceStatus('원고를 읽지 못했습니다.');
+      setSourceStatus({ kind: 'failed' });
       setNotice({ type: 'error', text: error.message });
       setSourceFile(null);
     } finally {
@@ -220,10 +228,10 @@ export default function App() {
       koreanTranslation: settings.defaultKorean,
     });
     if (!parsed.length) {
-      setNotice({ type: 'error', text: '예: 요 3:16-17, 롬 8:28처럼 입력해 주세요.' });
+      setNotice({ type: 'error', text: c.quickAddError });
       return;
     }
-    insertReferences(parsed, `${parsed.length}개 구절을 선택 위치 아래에 추가했습니다.`);
+    insertReferences(parsed, c.addedMany(parsed.length));
     setQuickText('');
   }
 
@@ -246,7 +254,7 @@ export default function App() {
     const clone = cloneReference(reference);
     setReferences((current) => [...current.slice(0, index + 1), clone, ...current.slice(index + 1)]);
     setSelectedId(clone.id);
-    setNotice({ type: 'success', text: '블록을 바로 아래에 복제했습니다.' });
+    setNotice({ type: 'success', text: c.duplicatedBelow });
   }
 
   function applyTranslationsToAll() {
@@ -255,7 +263,7 @@ export default function App() {
       englishTranslation: settings.defaultEnglish,
       koreanTranslation: settings.defaultKorean,
     })));
-    setNotice({ type: 'success', text: '모든 블록에 기본 역본을 적용했습니다.' });
+    setNotice({ type: 'success', text: c.appliedAll });
   }
 
   function handleDragEnd(event) {
@@ -270,7 +278,7 @@ export default function App() {
 
   async function downloadPresentation() {
     if (!references.length) {
-      setNotice({ type: 'error', text: 'PPT에 넣을 성경구절을 하나 이상 추가해 주세요.' });
+      setNotice({ type: 'error', text: c.needPassage });
       return;
     }
 
@@ -278,18 +286,18 @@ export default function App() {
     if (hasTitle && settings.mainPassage.trim()) {
       [mainReference] = extractReferences(settings.mainPassage);
       if (!mainReference) {
-        setNotice({ type: 'error', text: '타이틀 본문을 인식하지 못했습니다. 예: 히 2:1' });
+        setNotice({ type: 'error', text: c.invalidTitlePassage });
         return;
       }
     }
 
     setGenerating(true);
-    setProgress({ current: 0, total: 1, label: '성경 본문을 준비하는 중…' });
+    setProgress({ current: 0, total: 1, label: c.preparingBible });
     try {
       const passages = await fetchPassages(references, (current, total, reference) => {
-        setProgress({ current, total, label: `${formatReference(reference)} 본문 불러오는 중…` });
-      });
-      setProgress({ current: 1, total: 1, label: 'PowerPoint 파일을 만드는 중…' });
+        setProgress({ current, total, label: c.loadingBible(formatReference(reference, language)) });
+      }, language);
+      setProgress({ current: 1, total: 1, label: c.buildingPowerPoint });
       const { generatePresentation } = await import('./lib/presentation.js');
       const createdSlides = await generatePresentation({
         passages,
@@ -297,10 +305,11 @@ export default function App() {
         titleKo: settings.titleKo.trim(),
         mainReference,
         fileName: settings.fileName,
+        language,
       });
-      setNotice({ type: 'success', text: `${createdSlides}장짜리 PPT를 다운로드했습니다.` });
+      setNotice({ type: 'success', text: c.downloaded(createdSlides) });
     } catch (error) {
-      setNotice({ type: 'error', text: error.message || 'PPT 생성 중 오류가 발생했습니다.' });
+      setNotice({ type: 'error', text: error.message || c.generationFailed });
     } finally {
       setGenerating(false);
       setProgress({ current: 0, total: 0, label: '' });
@@ -308,18 +317,27 @@ export default function App() {
   }
 
   function resetProject() {
-    if (!window.confirm('현재 구절 목록과 설정을 모두 지울까요?')) return;
+    if (!window.confirm(c.resetConfirm)) return;
     setReferences([]);
     setSettings(EMPTY_SETTINGS);
     setSourceFile(null);
-    setSourceStatus('원고 없이 바로 시작할 수 있습니다.');
+    setSourceStatus({ kind: 'idle' });
     setSelectedId(null);
     setCopiedReference(null);
     localStorage.removeItem('kcic-ppt-draft');
-    setNotice({ type: 'info', text: '새 작업을 시작합니다.' });
+    setNotice({ type: 'info', text: c.resetDone });
   }
 
   const progressPercent = progress.total ? Math.round((progress.current / progress.total) * 100) : 0;
+  const sourceStatusText = sourceStatus.kind === 'idle'
+    ? c.sourceIdle
+    : sourceStatus.kind === 'preparing'
+      ? c.sourcePreparing
+      : sourceStatus.kind === 'extracted'
+        ? c.sourceExtracted(sourceStatus.file, sourceStatus.count, sourceStatus.skipped)
+        : sourceStatus.kind === 'failed'
+          ? c.sourceFailed
+          : sourceStatus.text;
 
   return (
     <div
@@ -329,25 +347,29 @@ export default function App() {
       <header className="app-header">
         <div className="brand-mark" aria-hidden="true"><span /><span /><span /><span /></div>
         <div className="brand-copy">
-          <strong>KCIC 말씀 슬라이드</strong>
+          <strong>{c.brand}</strong>
           <span>SERMON PPT STUDIO</span>
         </div>
         <div className="header-spacer" />
-        <div className="privacy-chip"><ShieldCheck size={15} /> 원고는 업로드되지 않아요</div>
-        <button type="button" className="reset-button" onClick={resetProject}><RotateCcw size={15} /> 초기화</button>
+        <div className="language-switch" role="group" aria-label="Language">
+          <button type="button" className={language === 'en' ? 'is-active' : ''} aria-pressed={language === 'en'} onClick={() => setLanguage('en')}>EN</button>
+          <button type="button" className={language === 'ko' ? 'is-active' : ''} aria-pressed={language === 'ko'} onClick={() => setLanguage('ko')}>한국어</button>
+        </div>
+        <div className="privacy-chip"><ShieldCheck size={15} /> {c.privacy}</div>
+        <button type="button" className="reset-button" onClick={resetProject}><RotateCcw size={15} /> {c.reset}</button>
       </header>
 
       <main>
         <section className="intro-row">
           <div>
-            <span className="eyebrow"><Sparkles size={15} /> 더 빠른 설교 준비</span>
-            <h1>원고가 없어도,<br />구절만 골라 바로 PPT로.</h1>
-            <p>DOCX·PDF·TXT에서 구절을 자동으로 찾거나 직접 추가하세요. 순서는 드래그하고, 블록은 복사해서 원하는 곳에 붙일 수 있습니다.</p>
+            <span className="eyebrow"><Sparkles size={15} /> {c.eyebrow}</span>
+            <h1>{c.heroLine1}<br />{c.heroLine2}</h1>
+            <p>{c.heroDescription}</p>
           </div>
-          <ol className="workflow-steps" aria-label="작업 순서">
-            <li className="is-done"><span>1</span><div><strong>원고·설정</strong><small>선택 사항</small></div></li>
-            <li className={references.length ? 'is-done' : 'is-current'}><span>2</span><div><strong>구절 정리</strong><small>{references.length}개 블록</small></div></li>
-            <li className={references.length ? 'is-current' : ''}><span>3</span><div><strong>PPT 받기</strong><small>{slideCount}장 예상</small></div></li>
+          <ol className="workflow-steps" aria-label={c.workflowLabel}>
+            <li className="is-done"><span>1</span><div><strong>{c.step1Title}</strong><small>{c.step1Detail}</small></div></li>
+            <li className={references.length ? 'is-done' : 'is-current'}><span>2</span><div><strong>{c.step2Title}</strong><small>{c.step2Detail(references.length)}</small></div></li>
+            <li className={references.length ? 'is-current' : ''}><span>3</span><div><strong>{c.step3Title}</strong><small>{c.step3Detail(slideCount)}</small></div></li>
           </ol>
         </section>
 
@@ -357,45 +379,45 @@ export default function App() {
           <aside className="settings-column">
             <section className="panel source-panel">
               <div className="panel-heading">
-                <div><span className="section-number">01</span><h2>원고 가져오기</h2></div>
-                <span className="optional-label">선택</span>
+                <div><span className="section-number">01</span><h2>{c.sourceHeading}</h2></div>
+                <span className="optional-label">{c.optional}</span>
               </div>
-              <DocumentDropzone file={sourceFile} busy={parsing} onFile={handleFile} onClear={() => { setSourceFile(null); setSourceStatus('원고 없이 바로 시작할 수 있습니다.'); }} />
-              <p className="source-status"><FileCheck2 size={15} /> {sourceStatus}</p>
+              <DocumentDropzone file={sourceFile} busy={parsing} onFile={handleFile} copy={c.dropzone} onClear={() => { setSourceFile(null); setSourceStatus({ kind: 'idle' }); }} />
+              <p className="source-status"><FileCheck2 size={15} /> {sourceStatusText}</p>
             </section>
 
             <section className="panel">
               <div className="panel-heading">
-                <div><span className="section-number">02</span><h2>제목 슬라이드</h2></div>
-                <span className="optional-label">선택</span>
+                <div><span className="section-number">02</span><h2>{c.titleHeading}</h2></div>
+                <span className="optional-label">{c.optional}</span>
               </div>
               <div className="form-stack">
-                <label><span>한글 제목</span><input value={settings.titleKo} onChange={(event) => updateSetting('titleKo', event.target.value)} placeholder="예: 마음을 지키는 믿음" /></label>
-                <label><span>영문 제목</span><input value={settings.titleEn} onChange={(event) => updateSetting('titleEn', event.target.value)} placeholder="예: A Faith That Guards the Heart" /></label>
-                <label><span>타이틀 본문</span><input value={settings.mainPassage} onChange={(event) => updateSetting('mainPassage', event.target.value)} placeholder="비우면 첫 구절 자동 사용" /></label>
+                <label><span>{c.koreanTitle}</span><input value={settings.titleKo} onChange={(event) => updateSetting('titleKo', event.target.value)} placeholder={c.koreanTitlePlaceholder} /></label>
+                <label><span>{c.englishTitle}</span><input value={settings.titleEn} onChange={(event) => updateSetting('titleEn', event.target.value)} placeholder={c.englishTitlePlaceholder} /></label>
+                <label><span>{c.titlePassage}</span><input value={settings.mainPassage} onChange={(event) => updateSetting('mainPassage', event.target.value)} placeholder={c.titlePassagePlaceholder} /></label>
               </div>
-              <p className="field-help">두 제목을 모두 비우면 제목 슬라이드를 만들지 않습니다.</p>
+              <p className="field-help">{c.titleHelp}</p>
             </section>
 
             <section className="panel">
               <div className="panel-heading">
-                <div><span className="section-number">03</span><h2>기본 역본</h2></div>
+                <div><span className="section-number">03</span><h2>{c.versionsHeading}</h2></div>
               </div>
               <div className="translation-grid">
-                <label><span>영문</span><select value={settings.defaultEnglish} onChange={(event) => updateSetting('defaultEnglish', event.target.value)}>{Object.entries(ENGLISH_TRANSLATIONS).map(([code, label]) => <option key={code} value={code}>{label}</option>)}</select></label>
-                <label><span>한글</span><select value={settings.defaultKorean} onChange={(event) => updateSetting('defaultKorean', event.target.value)}>{Object.entries(KOREAN_TRANSLATIONS).map(([code, label]) => <option key={code} value={code}>{label}</option>)}</select></label>
+                <label><span>{c.english}</span><select value={settings.defaultEnglish} onChange={(event) => updateSetting('defaultEnglish', event.target.value)}>{Object.entries(ENGLISH_TRANSLATIONS).map(([code, label]) => <option key={code} value={code}>{label}</option>)}</select></label>
+                <label><span>{c.korean}</span><select value={settings.defaultKorean} onChange={(event) => updateSetting('defaultKorean', event.target.value)}>{Object.entries(KOREAN_TRANSLATIONS).map(([code, label]) => <option key={code} value={code}>{language === 'en' ? `${code} · ${label}` : label}</option>)}</select></label>
               </div>
-              <button type="button" className="text-button" onClick={applyTranslationsToAll} disabled={!references.length}>현재 모든 블록에 적용</button>
+              <button type="button" className="text-button" onClick={applyTranslationsToAll} disabled={!references.length}>{c.applyAll}</button>
             </section>
 
-            <section className="template-preview" aria-label="PPT 템플릿 미리보기">
+            <section className="template-preview" aria-label={c.templatePreview}>
               <div className="preview-screen">
                 <div className="preview-text">
-                  <strong>{settings.titleKo || '설교 제목'}</strong>
-                  <span>{selectedReference ? `(${formatReference(selectedReference)})` : '(본문 구절)'}</span>
+                  <strong>{(language === 'en' ? settings.titleEn : settings.titleKo) || c.sermonTitle}</strong>
+                  <span>{selectedReference ? `(${formatReference(selectedReference, language)})` : `(${c.passage})`}</span>
                 </div>
               </div>
-              <div><span>KCIC 기본 템플릿</span><small>16:9 · 제목 + 한/영 본문</small></div>
+              <div><span>{c.templateName}</span><small>{c.templateDetail}</small></div>
             </section>
           </aside>
 
@@ -403,28 +425,28 @@ export default function App() {
             <div className="verses-header">
               <div>
                 <span className="section-number">04</span>
-                <h2>성경구절 블록</h2>
-                <p>클릭해 위치를 고르고, 손잡이를 끌어 순서를 바꾸세요.</p>
+                <h2>{c.blocksHeading}</h2>
+                <p>{c.blocksHelp}</p>
               </div>
               <div className="list-tools">
-                <button type="button" onClick={pasteCopiedReference} disabled={!copiedReference}><ClipboardPaste size={16} /> 붙여넣기</button>
-                <span>{references.length} blocks</span>
+                <button type="button" onClick={pasteCopiedReference} disabled={!copiedReference}><ClipboardPaste size={16} /> {c.paste}</button>
+                <span>{c.blocksCount(references.length)}</span>
               </div>
             </div>
 
             <div className="quick-add">
               <div className="quick-add-icon"><Plus size={19} /></div>
               <label>
-                <span>구절 빠르게 추가</span>
+                <span>{c.quickAdd}</span>
                 <input
                   value={quickText}
                   onChange={(event) => setQuickText(event.target.value)}
                   onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); addQuickReferences(); } }}
-                  placeholder="요 3:16-17, Romans 8:28"
+                  placeholder={c.quickPlaceholder}
                 />
               </label>
-              <button type="button" className="primary-button compact" onClick={addQuickReferences}>추가</button>
-              <small>{selectedReference ? `“${formatReference(selectedReference)}” 아래에 추가됩니다.` : '목록 맨 아래에 추가됩니다.'}</small>
+              <button type="button" className="primary-button compact" onClick={addQuickReferences}>{c.add}</button>
+              <small>{selectedReference ? c.insertAfter(formatReference(selectedReference, language)) : c.insertEnd}</small>
             </div>
 
             {references.length ? (
@@ -442,6 +464,8 @@ export default function App() {
                         onCopy={() => copyReference(reference)}
                         onDuplicate={() => duplicateReference(reference)}
                         onRemove={() => removeReference(reference.id)}
+                        language={language}
+                        copy={c.card}
                       />
                     ))}
                   </div>
@@ -450,16 +474,16 @@ export default function App() {
             ) : (
               <div className="empty-state">
                 <div><Layers3 size={28} /></div>
-                <h3>아직 구절 블록이 없습니다</h3>
-                <p>위 입력창에 <strong>요 3:16</strong>처럼 적거나, 왼쪽에 원고를 놓아보세요.</p>
-                <span>원고 없이 직접 추가해도 됩니다.</span>
+                <h3>{c.emptyTitle}</h3>
+                <p>{c.emptyBody}</p>
+                <span>{c.emptyNote}</span>
               </div>
             )}
 
             <div className="keyboard-hint">
-              <span><kbd>Ctrl/Cmd</kbd> + <kbd>C</kbd> 선택 블록 복사</span>
-              <span><kbd>Ctrl/Cmd</kbd> + <kbd>V</kbd> 선택 아래 붙여넣기</span>
-              <span><kbd>Ctrl/Cmd</kbd> + <kbd>D</kbd> 빠른 복제</span>
+              <span><kbd>Ctrl/Cmd</kbd> + <kbd>C</kbd> {c.shortcutCopy}</span>
+              <span><kbd>Ctrl/Cmd</kbd> + <kbd>V</kbd> {c.shortcutPaste}</span>
+              <span><kbd>Ctrl/Cmd</kbd> + <kbd>D</kbd> {c.shortcutDuplicate}</span>
             </div>
           </section>
         </div>
@@ -468,19 +492,19 @@ export default function App() {
       <div className="download-dock">
         <div className="download-summary">
           <span className="slide-total">{slideCount}</span>
-          <div><strong>예상 슬라이드</strong><small>제목 {hasTitle ? '1' : '0'}장 + 말씀 {verseSlides}장</small></div>
+          <div><strong>{c.expectedSlides}</strong><small>{c.slideSummary(hasTitle ? 1 : 0, verseSlides)}</small></div>
         </div>
-        <label className="filename-field"><span>파일 이름</span><div><input value={settings.fileName} onChange={(event) => updateSetting('fileName', event.target.value)} /><b>.pptx</b></div></label>
+        <label className="filename-field"><span>{c.fileName}</span><div><input value={settings.fileName} onChange={(event) => updateSetting('fileName', event.target.value)} /><b>.pptx</b></div></label>
         {generating && <div className="generation-progress"><div><span style={{ width: `${progressPercent}%` }} /></div><small>{progress.label}</small></div>}
         <button type="button" className="download-button" disabled={!references.length || generating} onClick={downloadPresentation}>
           {generating ? <LoaderCircle className="spin" size={20} /> : <Download size={20} />}
-          {generating ? '만드는 중…' : 'PPT 다운로드'}
+          {generating ? c.generating : c.download}
         </button>
       </div>
 
       <footer>
         <span>KCIC · KAIST-CNU International Chapel</span>
-        <span>문서는 브라우저에서만 처리되며 서버에 저장되지 않습니다.</span>
+        <span>{c.footerPrivacy}</span>
       </footer>
     </div>
   );

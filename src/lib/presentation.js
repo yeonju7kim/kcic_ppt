@@ -6,11 +6,11 @@ const SLIDE_HEIGHT = 7.5;
 const FONT = 'Malgun Gothic';
 let backgroundDataPromise;
 
-function loadBackground() {
+function loadBackground(language) {
   if (!backgroundDataPromise) {
     backgroundDataPromise = fetch(`${import.meta.env.BASE_URL}assets/sermon-background.png`)
       .then((response) => {
-        if (!response.ok) throw new Error('PPT 배경 이미지를 불러오지 못했습니다.');
+        if (!response.ok) throw new Error(language === 'ko' ? 'PPT 배경 이미지를 불러오지 못했습니다.' : 'The PPT background image could not be loaded.');
         return response.blob();
       })
       .then((blob) => new Promise((resolve, reject) => {
@@ -95,14 +95,14 @@ function addVerseSlide(presentation, background, reference, englishVerse, korean
   addVerseText(slide, koreanVerse, 0.405, 3.84, 12.1, 2.04);
 }
 
-export async function generatePresentation({ passages, titleEn, titleKo, mainReference, fileName }) {
-  const background = await loadBackground();
+export async function generatePresentation({ passages, titleEn, titleKo, mainReference, fileName, language = 'en' }) {
+  const background = await loadBackground(language);
   const presentation = new pptxgen();
   presentation.layout = 'LAYOUT_WIDE';
   presentation.author = 'KCIC';
   presentation.company = 'KAIST-CNU International Chapel';
   presentation.subject = 'Sermon Bible passages';
-  presentation.title = titleKo || titleEn || 'KCIC 말씀 슬라이드';
+  presentation.title = titleKo || titleEn || (language === 'ko' ? 'KCIC 말씀 슬라이드' : 'KCIC Scripture Slides');
   presentation.lang = 'ko-KR';
   presentation.theme = {
     headFontFace: FONT,
@@ -126,7 +126,7 @@ export async function generatePresentation({ passages, titleEn, titleKo, mainRef
     }
   }
 
-  const safeName = (fileName || 'KCIC_말씀_슬라이드')
+  const safeName = (fileName || (language === 'ko' ? 'KCIC_말씀_슬라이드' : 'KCIC_Scripture_Slides'))
     .replace(/[<>:"/\\|?*\u0000-\u001F]/g, '_')
     .replace(/\.pptx$/i, '');
   await presentation.writeFile({ fileName: `${safeName}.pptx` });

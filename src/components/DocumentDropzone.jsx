@@ -2,7 +2,7 @@ import { useRef, useState } from 'react';
 import { FileText, UploadCloud, X } from 'lucide-react';
 import { isSupportedDocument } from '../lib/fileTypes.js';
 
-export default function DocumentDropzone({ file, busy, onFile, onClear }) {
+export default function DocumentDropzone({ file, busy, onFile, onClear, copy }) {
   const inputRef = useRef(null);
   const [dragging, setDragging] = useState(false);
 
@@ -39,9 +39,9 @@ export default function DocumentDropzone({ file, busy, onFile, onClear }) {
           <div className="file-icon"><FileText size={22} /></div>
           <div className="file-copy">
             <strong>{file.name}</strong>
-            <span>{(file.size / 1024 / 1024).toFixed(1)} MB · 기기 안에서만 읽습니다</span>
+            <span>{(file.size / 1024 / 1024).toFixed(1)} {copy.localOnly}</span>
           </div>
-          <button className="icon-button" type="button" onClick={onClear} aria-label="원고 선택 해제">
+          <button className="icon-button" type="button" onClick={onClear} aria-label={copy.clear}>
             <X size={18} />
           </button>
         </>
@@ -49,11 +49,11 @@ export default function DocumentDropzone({ file, busy, onFile, onClear }) {
         <>
           <UploadCloud size={27} />
           <div>
-            <strong>{busy ? '원고를 읽는 중입니다…' : '원고를 놓거나 선택하세요'}</strong>
-            <span>DOCX · PDF · TXT, 선택 사항</span>
+            <strong>{busy ? copy.reading : copy.prompt}</strong>
+            <span>{copy.formats}</span>
           </div>
           <button type="button" className="secondary-button" onClick={() => inputRef.current?.click()} disabled={busy}>
-            파일 선택
+            {copy.choose}
           </button>
         </>
       )}

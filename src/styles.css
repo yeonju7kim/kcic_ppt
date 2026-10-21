@@ -65,6 +65,28 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
 .brand-copy span { margin-top: 4px; font-size: 9px; letter-spacing: 0.18em; color: #b9d8d2; }
 .header-spacer { flex: 1; }
 
+.language-switch {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 9px;
+}
+.language-switch button {
+  height: 28px;
+  padding: 0 9px;
+  color: #b9d8d2;
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  font-size: 10px;
+  font-weight: 800;
+  cursor: pointer;
+}
+.language-switch button:hover { color: white; }
+.language-switch button.is-active { color: var(--green-dark); background: white; }
+
 .privacy-chip {
   display: inline-flex;
   align-items: center;
@@ -452,6 +474,8 @@ footer { display: flex; justify-content: space-between; gap: 24px; width: min(14
 @media (max-width: 600px) {
   .app-shell { padding-bottom: 210px; }
   .brand-copy span { display: none; }
+  .brand-copy strong { max-width: 145px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .language-switch button { padding-inline: 7px; }
   .reset-button { font-size: 0; }
   .reset-button svg { width: 18px; height: 18px; }
   .intro-row { padding-bottom: 24px; }

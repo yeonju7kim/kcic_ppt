@@ -36,7 +36,7 @@ async function saveCachedChapter(key, value) {
   });
 }
 
-async function getChapter(slug, chapter) {
+async function getChapter(slug, chapter, language) {
   const key = `${slug}:${chapter}`;
   if (memoryCache.has(key)) return memoryCache.get(key);
 
@@ -47,29 +47,40 @@ async function getChapter(slug, chapter) {
   }
 
   const response = await fetch(`${BASE_URL}/${slug}/${chapter}.json`);
-  if (!response.ok) throw new Error(`성경 본문을 불러오지 못했습니다. (${response.status})`);
+  if (!response.ok) {
+    throw new Error(language === 'ko'
+      ? `성경 본문을 불러오지 못했습니다. (${response.status})`
+      : `Scripture text could not be loaded. (${response.status})`);
+  }
   const data = await response.json();
-  if (!Array.isArray(data.v)) throw new Error('성경 본문 응답 형식이 올바르지 않습니다.');
+  if (!Array.isArray(data.v)) {
+    throw new Error(language === 'ko'
+      ? '성경 본문 응답 형식이 올바르지 않습니다.'
+      : 'The Scripture response format is invalid.');
+  }
 
   memoryCache.set(key, data.v);
   await saveCachedChapter(key, data.v);
   return data.v;
 }
 
-function selectVerses(chapterData, reference, translation) {
+function selectVerses(chapterData, reference, translation, language) {
   const verses = new Map(chapterData.map(([number, translations]) => [Number(number), translations]));
   const result = [];
   for (let number = reference.verseStart; number <= reference.verseEnd; number += 1) {
     const text = verses.get(number)?.[translation]?.trim();
     if (!text) {
-      throw new Error(`${reference.bookKo} ${reference.chapter}:${number}의 ${translation} 본문을 찾지 못했습니다.`);
+      const book = language === 'ko' ? reference.bookKo : reference.bookEn;
+      throw new Error(language === 'ko'
+        ? `${book} ${reference.chapter}:${number}의 ${translation} 본문을 찾지 못했습니다.`
+        : `${translation} text was not found for ${book} ${reference.chapter}:${number}.`);
     }
     result.push({ number, text });
   }
   return result;
 }
 
-export async function fetchPassages(references, onProgress) {
+export async function fetchPassages(references, onProgress, language = 'en') {
   const uniqueChapters = new Map();
   for (const reference of references) {
     uniqueChapters.set(`${reference.slug}:${reference.chapter}`, reference);
@@ -79,7 +90,7 @@ export async function fetchPassages(references, onProgress) {
   const chapters = new Map();
   let completed = 0;
   await Promise.all(chapterEntries.map(async ([key, reference]) => {
-    const data = await getChapter(reference.slug, reference.chapter);
+    const data = await getChapter(reference.slug, reference.chapter, language);
     chapters.set(key, data);
     completed += 1;
     onProgress?.(completed, chapterEntries.length, reference);
@@ -89,8 +100,8 @@ export async function fetchPassages(references, onProgress) {
     const data = chapters.get(`${reference.slug}:${reference.chapter}`);
     return {
       reference,
-      english: selectVerses(data, reference, reference.englishTranslation),
-      korean: selectVerses(data, reference, reference.koreanTranslation),
+      english: selectVerses(data, reference, reference.englishTranslation, language),
+      korean: selectVerses(data, reference, reference.koreanTranslation, language),
     };
   });
 }

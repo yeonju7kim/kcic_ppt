@@ -13,6 +13,8 @@ export default function ReferenceCard({
   onCopy,
   onDuplicate,
   onRemove,
+  language,
+  copy,
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: reference.id });
   const style = { transform: CSS.Transform.toString(transform), transition };
@@ -36,13 +38,13 @@ export default function ReferenceCard({
       style={style}
       className={`reference-card ${selected ? 'is-selected' : ''} ${isDragging ? 'is-dragging' : ''}`}
       onClick={onSelect}
-      aria-label={`${index + 1}번 구절 블록 ${formatReference(reference)}`}
+      aria-label={copy.aria(index + 1, formatReference(reference, language))}
     >
       <div className="card-rail">
         <button
           className="drag-handle"
           type="button"
-          aria-label="드래그하여 순서 변경"
+          aria-label={copy.drag}
           {...attributes}
           {...listeners}
         >
@@ -54,39 +56,39 @@ export default function ReferenceCard({
       <div className="reference-content">
         <div className="reference-heading">
           <div>
-            <strong>{formatReference(reference)}</strong>
-            <span>{formatReference(reference, 'en')}</span>
+            <strong>{formatReference(reference, language)}</strong>
+            <span>{formatReference(reference, language === 'en' ? 'ko' : 'en')}</span>
           </div>
-          <span className="verse-count">{reference.verseEnd - reference.verseStart + 1}절</span>
+          <span className="verse-count">{copy.verses(reference.verseEnd - reference.verseStart + 1)}</span>
         </div>
 
         <div className="reference-fields" onClick={(event) => event.stopPropagation()}>
           <label className="book-field">
-            <span>성경</span>
+            <span>{copy.bible}</span>
             <select value={reference.bookEn} onChange={(event) => updateBook(event.target.value)}>
-              {BOOKS.map((book) => <option key={book.en} value={book.en}>{book.ko}</option>)}
+              {BOOKS.map((book) => <option key={book.en} value={book.en}>{language === 'en' ? book.en : book.ko}</option>)}
             </select>
           </label>
           <label>
-            <span>장</span>
+            <span>{copy.chapter}</span>
             <input type="number" min="1" max="150" value={reference.chapter} onChange={(event) => updateNumber('chapter', event.target.value)} />
           </label>
           <label>
-            <span>시작 절</span>
+            <span>{copy.start}</span>
             <input type="number" min="1" max="176" value={reference.verseStart} onChange={(event) => updateNumber('verseStart', event.target.value)} />
           </label>
           <label>
-            <span>끝 절</span>
+            <span>{copy.end}</span>
             <input type="number" min="1" max="176" value={reference.verseEnd} onChange={(event) => updateNumber('verseEnd', event.target.value)} />
           </label>
           <label>
-            <span>영문 역본</span>
+            <span>{copy.englishVersion}</span>
             <select value={reference.englishTranslation} onChange={(event) => onUpdate({ ...reference, englishTranslation: event.target.value })}>
               {Object.entries(ENGLISH_TRANSLATIONS).map(([code, label]) => <option key={code} value={code}>{label}</option>)}
             </select>
           </label>
           <label>
-            <span>한글 역본</span>
+            <span>{copy.koreanVersion}</span>
             <select value={reference.koreanTranslation} onChange={(event) => onUpdate({ ...reference, koreanTranslation: event.target.value })}>
               {Object.entries(KOREAN_TRANSLATIONS).map(([code, label]) => <option key={code} value={code}>{label}</option>)}
             </select>
@@ -94,9 +96,9 @@ export default function ReferenceCard({
         </div>
 
         <div className="card-actions" onClick={(event) => event.stopPropagation()}>
-          <button type="button" onClick={onCopy} title="복사 (Ctrl/Cmd+C)"><Copy size={15} /> 복사</button>
-          <button type="button" onClick={onDuplicate} title="바로 아래에 복제"><CopyPlus size={15} /> 복제</button>
-          <button type="button" className="danger-action" onClick={onRemove}><Trash2 size={15} /> 삭제</button>
+          <button type="button" onClick={onCopy} title={copy.copyTitle}><Copy size={15} /> {copy.copy}</button>
+          <button type="button" onClick={onDuplicate} title={copy.duplicateTitle}><CopyPlus size={15} /> {copy.duplicate}</button>
+          <button type="button" className="danger-action" onClick={onRemove}><Trash2 size={15} /> {copy.remove}</button>
         </div>
       </div>
     </article>
