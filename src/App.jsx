@@ -353,6 +353,7 @@ export default function App() {
         <div className="brand-copy">
           <strong>{c.brand}</strong>
         </div>
+        <a className="tool-link" href="#/lyrics">Lyrics TXT</a>
         <div className="header-spacer" />
         <div className="language-switch" role="group" aria-label="Language">
           <button type="button" className={language === 'en' ? 'is-active' : ''} aria-pressed={language === 'en'} onClick={() => setLanguage('en')}>EN</button>

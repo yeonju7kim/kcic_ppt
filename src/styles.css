@@ -55,6 +55,8 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
 
 .brand-copy { display: flex; align-items: center; }
 .brand-copy strong { font-size: 17px; letter-spacing: -0.02em; }
+.tool-link { padding: 7px 9px; color: #d5ebe6; background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.14); border-radius: 7px; text-decoration: none; font-size: 10px; font-weight: 800; }
+.tool-link:hover { color: white; background: rgba(255,255,255,.14); }
 .header-spacer { flex: 1; }
 
 .language-switch {
