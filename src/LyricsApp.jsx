@@ -14,7 +14,7 @@ import {
   Upload,
   X,
 } from 'lucide-react';
-import { buildLyricsText, extractSongsFromDocx, inferOutputFilename } from './lib/lyrics.js';
+import { buildLyricsText, extractSongsFromDocx, inferOutputFilename, parseSongsFromParagraphs } from './lib/lyrics.js';
 import './lyrics.css';
 
 function activeItem(items, id) {
@@ -32,6 +32,7 @@ export default function LyricsApp() {
   const [fileInfo, setFileInfo] = useState(null);
   const [draggingFile, setDraggingFile] = useState(false);
   const [parsing, setParsing] = useState(false);
+  const [parsingLabel, setParsingLabel] = useState('');
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
 
@@ -60,14 +61,28 @@ export default function LyricsApp() {
 
   async function loadFile(file) {
     setError('');
-    if (!file?.name.toLowerCase().endsWith('.docx')) {
-      setError('DOCX 파일을 선택해 주세요.');
+    const extension = file?.name.split('.').pop()?.toLowerCase();
+    if (!['docx', 'pdf', 'txt'].includes(extension)) {
+      setError('DOCX, PDF 또는 TXT 파일을 선택해 주세요.');
       return;
     }
     setParsing(true);
+    setParsingLabel(`${extension.toUpperCase()} 파일을 읽고 있어요…`);
     try {
-      const parsedSongs = await extractSongsFromDocx(await file.arrayBuffer());
-      if (!parsedSongs.length) throw new Error('Verse·Chorus 구간과 가사를 찾지 못했습니다.');
+      let parsedSongs;
+      if (extension === 'docx') {
+        parsedSongs = await extractSongsFromDocx(await file.arrayBuffer());
+      } else {
+        const { extractTextFromFile } = await import('./lib/documents.js');
+        const text = await extractTextFromFile(file, (status) => setParsingLabel(status), 'ko');
+        if (!text.trim()) {
+          throw new Error(extension === 'pdf'
+            ? 'PDF에서 텍스트를 찾지 못했습니다. 스캔 PDF는 OCR이 필요합니다.'
+            : 'TXT 파일이 비어 있습니다.');
+        }
+        parsedSongs = parseSongsFromParagraphs(text.replace(/\f/g, '\n').split(/\r?\n/));
+      }
+      if (!parsedSongs.length) throw new Error('곡 제목과 가사 구간을 찾지 못했습니다. 그룹은 파일 형식을 정리한 뒤 다시 시도해 주세요.');
       setSongs(parsedSongs);
       setActiveSongId(parsedSongs[0].id);
       setActiveSectionId(parsedSongs[0].sections[0]?.id || null);
@@ -78,6 +93,7 @@ export default function LyricsApp() {
       setError(loadError.message || '파일을 읽는 중 문제가 생겼습니다.');
     } finally {
       setParsing(false);
+      setParsingLabel('');
       if (fileInputRef.current) fileInputRef.current.value = '';
     }
   }
@@ -191,11 +207,11 @@ export default function LyricsApp() {
         <section className="lyrics-intro">
           <p>DOCX → LYRICS</p>
           <h1>악보에서 가사만,<br /><em>원하는 순서대로.</em></h1>
-          <span>코드는 자동으로 걷어내고 Verse·Chorus 그룹을 편집한 뒤 TXT로 저장하세요.</span>
+          <span>DOCX·PDF·TXT에서 코드를 걷어내고 Verse·Chorus 그룹을 편집한 뒤 TXT로 저장하세요.</span>
         </section>
 
         <section className="lyrics-upload">
-          <input ref={fileInputRef} type="file" accept=".docx" hidden onChange={(event) => loadFile(event.target.files[0])} />
+          <input ref={fileInputRef} type="file" accept=".docx,.pdf,.txt,application/pdf,text/plain" hidden onChange={(event) => loadFile(event.target.files[0])} />
           <button
             type="button"
             className={draggingFile ? 'is-dragging' : ''}
@@ -206,7 +222,7 @@ export default function LyricsApp() {
             onDrop={(event) => { event.preventDefault(); setDraggingFile(false); loadFile(event.dataTransfer.files[0]); }}
           >
             <span className="lyrics-upload-icon"><Upload size={24} /></span>
-            <span><strong>{parsing ? '악보를 읽고 있어요…' : 'DOCX 악보를 놓아주세요'}</strong><small>또는 클릭해서 파일 선택</small></span>
+            <span><strong>{parsing ? parsingLabel : '악보 파일을 놓아주세요'}</strong><small>DOCX · 텍스트형 PDF · TXT</small></span>
             <b>파일 선택</b>
           </button>
           {error && <p className="lyrics-error" role="alert">{error}</p>}

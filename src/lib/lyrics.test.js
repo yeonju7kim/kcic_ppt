@@ -19,4 +19,13 @@ describe('lyrics parser', () => {
     expect(inferOutputFilename('2026 Sep_18_FPN.docx')).toBe('260918.txt');
     expect(inferOutputFilename('FPN 26_10_23.docx')).toBe('261023.txt');
   });
+
+  it('reads plain TXT output with starred song titles', () => {
+    const songs = parseSongsFromParagraphs([
+      '*First Song', 'First line', 'Second line', '',
+      '*Second Song', '[Verse1]', 'Another line',
+    ]);
+    expect(songs.map((song) => song.title)).toEqual(['First Song', 'Second Song']);
+    expect(buildLyricsText(songs)).toContain('*Second Song\nAnother line');
+  });
 });

@@ -169,6 +169,7 @@ function cleanTitle(rawTitle) {
     }
   }
   const title = titleSource
+    .replace(/^\*+\s*/, "")
     .replace(/\s*[([]\s*(?:key\s*[:：]?\s*)?[A-G](?:#|b)?(?:m)?\s*[)\]]\s*$/i, "")
     .replace(/\s*\((?:key\s*[:：]?\s*)?[A-G](?:#|b)?(?:m)?\)\s*$/i, "")
     .replace(/\s*\[(?:key\s*[:：]?\s*)?[A-G](?:#|b)?(?:m)?\]\s*$/i, "")
@@ -243,6 +244,10 @@ function findSongStarts(paragraphs) {
   for (let index = first + 1; index < paragraphs.length; index += 1) {
     const text = paragraphs[index].trim();
     if (!text) continue;
+    if (text.startsWith("*")) {
+      starts.push(index);
+      continue;
+    }
     if (parseSectionLabel(text) || parseSequenceText(text) || isChordOnly(text)) continue;
     const after = nextNonBlank(paragraphs, index, 3);
     const immediatelyHasSequence = after[0] && parseSequenceText(after[0].text);
