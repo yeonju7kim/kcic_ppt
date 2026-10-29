@@ -27,7 +27,7 @@ export default function LyricsApp() {
   const [songs, setSongs] = useState([]);
   const [activeSongId, setActiveSongId] = useState(null);
   const [activeSectionId, setActiveSectionId] = useState(null);
-  const [includeTags, setIncludeTags] = useState(false);
+  const [outputMode, setOutputMode] = useState('plain');
   const [outputName, setOutputName] = useState('lyrics.txt');
   const [fileInfo, setFileInfo] = useState(null);
   const [draggingFile, setDraggingFile] = useState(false);
@@ -38,7 +38,10 @@ export default function LyricsApp() {
 
   const song = activeItem(songs, activeSongId);
   const section = activeItem(song?.sections || [], activeSectionId);
-  const output = useMemo(() => buildLyricsText(songs, { includeTags }), [songs, includeTags]);
+  const output = useMemo(() => buildLyricsText(songs, {
+    includeTags: outputMode === 'tagged',
+    includeSequence: outputMode === 'sequence',
+  }), [songs, outputMode]);
 
   useEffect(() => {
     document.documentElement.lang = 'ko';
@@ -295,10 +298,12 @@ export default function LyricsApp() {
 
             <aside className="lyrics-panel lyrics-output">
               <div className="lyrics-panel-heading"><div><b>3</b><h2>TXT 미리보기</h2></div></div>
-              <div className="lyrics-tag-toggle">
-                <button type="button" className={!includeTags ? 'is-active' : ''} onClick={() => setIncludeTags(false)}>태그 없이</button>
-                <button type="button" className={includeTags ? 'is-active' : ''} onClick={() => setIncludeTags(true)}>[Verse] 표시</button>
+              <div className="lyrics-tag-toggle" role="group" aria-label="TXT 출력 형식">
+                <button type="button" className={outputMode === 'plain' ? 'is-active' : ''} aria-pressed={outputMode === 'plain'} onClick={() => setOutputMode('plain')}>태그 없이</button>
+                <button type="button" className={outputMode === 'tagged' ? 'is-active' : ''} aria-pressed={outputMode === 'tagged'} onClick={() => setOutputMode('tagged')}>[Verse] 표시</button>
+                <button type="button" className={outputMode === 'sequence' ? 'is-active' : ''} aria-pressed={outputMode === 'sequence'} onClick={() => setOutputMode('sequence')}>시퀀스 + 파트별 1회</button>
               </div>
+              {outputMode === 'sequence' && <p className="lyrics-output-help">OBS 입력용으로 시퀀스를 먼저 적고, 순서에 사용한 각 파트의 가사를 한 번씩 표시합니다. 복사·TXT 저장에도 같은 형식이 적용됩니다.</p>}
               <label className="lyrics-field lyrics-filename"><span>파일명</span><input value={outputName} onChange={(event) => setOutputName(event.target.value)} /></label>
               <pre>{output}</pre>
               <div className="lyrics-actions">

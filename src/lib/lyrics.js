@@ -506,17 +506,23 @@ export async function extractSongsFromDocx(arrayBuffer) {
   return parseSongsFromParagraphs(extractParagraphsFromDocumentXml(xml));
 }
 
-export function buildLyricsText(songs, { includeTags = false } = {}) {
+export function buildLyricsText(songs, { includeTags = false, includeSequence = false } = {}) {
   return songs
     .filter((song) => song.included)
     .map((song) => {
       const sectionById = new Map(song.sections.map((section) => [section.id, section]));
-      const parts = song.sequence
+      const sequence = song.sequence
         .map((sectionId) => sectionById.get(sectionId))
-        .filter((section) => section?.lyrics.trim())
-        .map((section) => includeTags
+        .filter((section) => section?.lyrics.trim());
+      const sections = includeSequence
+        ? [...new Map(sequence.map((section) => [section.id, section])).values()]
+        : sequence;
+      const parts = sections.map((section) => includeTags || includeSequence
           ? `[${section.label}]\n${section.lyrics.trim()}`
           : section.lyrics.trim());
+      if (includeSequence && sequence.length) {
+        return `*${song.title.trim()}\nSequence: ${sequence.map((section) => section.label).join(' - ')}\n\n${parts.join('\n\n')}`;
+      }
       const separator = includeTags ? "\n\n" : "\n";
       return `*${song.title.trim()}\n${parts.join(separator)}`.trim();
     })

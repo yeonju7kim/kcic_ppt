@@ -141,6 +141,52 @@ describe('lyrics parser', () => {
   });
 });
 
+describe('sequence and one copy of each part', () => {
+  it('writes the full order and each named part once, preserving repeated lines inside a part', () => {
+    const songs = parseSongsFromParagraphs([
+      'Example Song (G)', 'V1-C-V2-C-C',
+      '[Verse 1]', 'First verse', 'First verse', '[Chorus]', 'Main chorus',
+      '[Verse 2]', 'Second verse',
+    ]);
+    const output = buildLyricsText(songs, { includeSequence: true });
+    expect(output).toBe([
+      '*Example Song', 'Sequence: Verse1 - Chorus - Verse2 - Chorus - Chorus', '',
+      '[Verse1]', 'First verse', 'First verse', '',
+      '[Chorus]', 'Main chorus', '', '[Verse2]', 'Second verse',
+    ].join('\n'));
+    expect(buildLyricsText(songs)).toBe('*Example Song\nFirst verse\nFirst verse\nMain chorus\nSecond verse\nMain chorus\nMain chorus');
+  });
+
+  it('follows edited order, keeps variant parts separate, and omits unused or empty parts', () => {
+    const [song] = parseSongsFromParagraphs([
+      'Edited Song (E)', '[Verse]', 'Same words', '[Chorus]', 'Same words',
+      '[Chorus]', 'Changed chorus', '[Ending]', 'Unused ending',
+    ]);
+    const [verse, chorus, variant] = song.sections;
+    song.sections.push({ id: 'empty', label: 'Empty', lyrics: '  ' });
+    song.sequence = [variant.id, 'missing', chorus.id, 'empty', verse.id, variant.id];
+    const output = buildLyricsText([song], { includeSequence: true });
+    expect(output).toBe([
+      '*Edited Song', 'Sequence: Chorus alt - Chorus - Verse - Chorus alt', '',
+      '[Chorus alt]', 'Changed chorus', '', '[Chorus]', 'Same words', '', '[Verse]', 'Same words',
+    ].join('\n'));
+    expect(output).not.toMatch(/Ending|Empty|undefined|missing/);
+  });
+
+  it('prints separate sequences only for included songs', () => {
+    const songs = parseSongsFromParagraphs([
+      '*First Song', '[Verse]', 'First words',
+      '*Skipped Song', '[Verse]', 'Skipped words',
+      '*Last Song', '[Chorus]', 'Last words', '[Chorus]',
+    ]);
+    songs[1].included = false;
+    expect(buildLyricsText(songs, { includeSequence: true })).toBe([
+      '*First Song', 'Sequence: Verse', '', '[Verse]', 'First words', '',
+      '*Last Song', 'Sequence: Chorus - Chorus', '', '[Chorus]', 'Last words',
+    ].join('\n'));
+  });
+});
+
 // Synthetic lyrics reproduce the three document layouts without storing song lyrics.
 const retreatLayouts = [
   {
