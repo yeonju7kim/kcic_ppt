@@ -86,6 +86,7 @@
 .lyrics-section-editor textarea { min-height: 112px; padding: 10px; resize: vertical; font-size: 11px; line-height: 1.6; }
 .lyrics-section-editor > p, .lyrics-sequence > p { width: 100%; margin: 8px 0; color: var(--lyrics-muted); text-align: center; font-size: 10px; }
 .lyrics-sequence-title { margin-top: 25px; }
+.lyrics-sequence-warning { margin: 0 18px 10px; padding: 10px 12px; color: #7b5724; background: #fff6e6; border-radius: 8px; font-size: 11px; line-height: 1.6; overflow-wrap: anywhere; }
 .lyrics-sequence { min-height: 58px; margin: 0 18px; padding: 10px; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; background: #fbfbf8; border: 1px dashed #ccd0ca; border-radius: 11px; }
 .lyrics-sequence-card { padding: 7px 6px 7px 8px; display: inline-flex; align-items: center; gap: 5px; color: var(--lyrics-green); background: var(--lyrics-mint); border: 1px solid #bdd0c5; border-radius: 8px; font-size: 10px; cursor: grab; }
 .lyrics-sequence-card > strong { font-size: 10px; }

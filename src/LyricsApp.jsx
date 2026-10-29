@@ -267,6 +267,7 @@ export default function LyricsApp() {
               </div>
 
               <div className="lyrics-subheading lyrics-sequence-title"><div><h3>출력 시퀀스</h3><p>블록을 끌어서 옮기고, 같은 그룹을 여러 번 넣을 수 있어요.</p></div></div>
+              {song?.unresolvedSections?.length > 0 && <p className="lyrics-sequence-warning" role="status">악보에서 가사를 찾지 못한 구간: {song.unresolvedSections.join(', ')}. 필요한 가사 그룹을 추가하고 출력 순서를 확인해 주세요.</p>}
               <div className="lyrics-sequence" onDragOver={(event) => event.preventDefault()}>
                 {song?.sequence.length ? song.sequence.map((sectionId, index) => {
                   const item = song.sections.find((candidate) => candidate.id === sectionId);

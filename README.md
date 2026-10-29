@@ -43,6 +43,17 @@ npm run build
 
 블록을 선택한 상태에서는 `Ctrl/Cmd+C`, `Ctrl/Cmd+V`, `Ctrl/Cmd+D` 단축키도 사용할 수 있습니다.
 
+## 악보에서 가사 TXT 만들기
+
+상단의 **Lyrics TXT** 링크 또는 `#/lyrics`에서 DOCX·PDF·TXT 악보를 가져올 수 있습니다.
+
+- 빈 줄 없이 이어지는 `곡 제목 (Key: G)`, `곡 제목 (E)`도 곡별로 분리합니다.
+- `C(2x)`, `C2x`, `Bx3`, `Option 1: I-V1-C-V2-C-C(ending)` 같은 순서 표기와 반복을 지원합니다.
+- `[Extra]`, `[Coda]`, `[Last Bridge]`, `[Verse 3, starts quiet]`, `[Chorus, Loud/Full]x2`도 가사 그룹으로 읽습니다.
+- 코드 진행, 연주 지시와 참고 메모를 제거하고, 실제 가사 안의 반복되는 줄은 보존합니다.
+- 같은 그룹에서 가사가 달라지는 부분은 `alt` 그룹으로 나누고 원래 위치에 배치합니다.
+- 순서표에만 있고 가사를 찾을 수 없는 구간은 편집 화면에 표시합니다. 필요한 가사와 출력 순서를 확인한 뒤 TXT로 저장하세요.
+
 ## 기술 구성
 
 - React + Vite
